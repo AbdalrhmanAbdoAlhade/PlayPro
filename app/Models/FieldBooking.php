@@ -20,6 +20,7 @@ class FieldBooking extends Model
         "players_count",
         'price',
         'qr_code',
+    'status',
     ];
 
     public function field()
