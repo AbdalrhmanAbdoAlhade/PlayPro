@@ -18,6 +18,7 @@ use App\Http\Controllers\BannerController;
 use App\Http\Controllers\MailController;
 use App\Http\Controllers\TransferRequestController;
 use App\Http\Controllers\CoachController;
+use App\Http\Controllers\RatingController;
 
 
 // Route لإرسال الإيميل عبر الـ API
@@ -97,15 +98,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // ----------------------------
     // Field Bookings
     // ----------------------------
-    Route::prefix('bookings')->group(function () {
-        Route::get('/', [FieldBookingController::class, 'index']);       // List all bookings
-        Route::get('{id}', [FieldBookingController::class, 'show']);    // Show booking details
-        Route::post('/', [FieldBookingController::class, 'store']);     // Create a booking
-        Route::delete('{id}', [FieldBookingController::class, 'destroy']); // Delete booking
+Route::middleware('auth:sanctum')->group(function () {
 
-        // Verify QR code
-        Route::post('verify-qr', [FieldBookingController::class, 'verifyQr']);
-    });
+    // عرض الحجوزات (Admin / Owner)
+    Route::get('bookings', [FieldBookingController::class, 'index']);
+    // عرض حجوزات المستخدم الحالي
+    Route::get('my-bookings', [FieldBookingController::class, 'myBookings']);
+    // إنشاء حجز جديد
+    Route::post('bookings', [FieldBookingController::class, 'store']);
+    // حذف حجز
+    Route::delete('bookings/{id}', [FieldBookingController::class, 'destroy']);
+    // التحقق من QR Code
+    Route::post('bookings/verify-qr', [FieldBookingController::class, 'verifyQr']);
 });
 
 
@@ -174,13 +178,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // ChairmanMessageController
     // ----------------------------
     
-Route::get('chairman-messages', [ChairmanMessageController::class, 'index']);
-Route::get('chairman-messages/{chairmanMessage}', [ChairmanMessageController::class, 'show']);
+
+Route::get('chairman-messages', [ChairmanMessageController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('chairman-messages', [ChairmanMessageController::class, 'store']);
-    Route::post('chairman-messages/{chairmanMessage}', [ChairmanMessageController::class, 'update']);
-    Route::delete('chairman-messages/{chairmanMessage}', [ChairmanMessageController::class, 'destroy']);
 });
 
 // ----------------------------
@@ -242,16 +244,19 @@ Route::middleware('auth:sanctum')->group(function () {
     // CoachController
     // ----------------------------
 
-Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/coaches', [CoachController::class, 'index']);
 
-    Route::post('/coaches', [CoachController::class, 'store']);
-
+    Route::get('/coaches', [CoachController::class, 'index']);
     Route::get('/coaches/{id}', [CoachController::class, 'show']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/coaches', [CoachController::class, 'store']);
     Route::post('/coaches/{id}', [CoachController::class, 'update']);
     Route::delete('/coaches/{id}', [CoachController::class, 'destroy']);
 
 });
 
+// ----------------------------
+    // RatingController
+    // ----------------------------
 
+Route::middleware('auth:sanctum')->post('/rate', [RatingController::class, 'store']);
 
