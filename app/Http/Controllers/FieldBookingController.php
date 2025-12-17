@@ -20,14 +20,14 @@ class FieldBookingController extends Controller
         $user = Auth::user();
 
         // Admin يشوف كل الحجوزات
-        if ($user->role === 'admin') {
+        if ($user->role === 'Admin') {
             $bookings = FieldBooking::with(['field', 'period', 'user'])
                 ->latest()
                 ->get();
         }
 
         // Owner يشوف حجوزات ملاعبه فقط
-        elseif ($user->role === 'owner') {
+        elseif ($user->role === 'Owner') {
             $bookings = FieldBooking::whereHas('field', function ($q) use ($user) {
                     $q->where('owner_id', $user->id);
                 })
@@ -192,12 +192,12 @@ class FieldBookingController extends Controller
     $booking = FieldBooking::findOrFail($id);
 
     // Admin يحذف أي حجز
-    if ($user->role === 'admin') {
+    if ($user->role === 'Admin') {
         $booking->delete();
     }
 
     // Owner يحذف حجوزات ملاعبه فقط
-    elseif ($user->role === 'owner') {
+    elseif ($user->role === 'Owner') {
         if ($booking->field->owner_id !== $user->id) {
             return response()->json([
                 'status' => false,
