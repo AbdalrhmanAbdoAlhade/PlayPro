@@ -10,6 +10,7 @@ class FieldBooking extends Model
     use HasFactory;
 
     protected $fillable = [
+         'user_id',   
         'field_id',
         'period_id',
         'name',
@@ -29,5 +30,10 @@ class FieldBooking extends Model
     public function period()
     {
         return $this->belongsTo(FieldPeriod::class);
+    }
+    
+      public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }
