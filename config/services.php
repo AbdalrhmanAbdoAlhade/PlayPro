@@ -13,6 +13,15 @@ return [
     | a conventional file to locate the various service credentials.
     |
     */
+'paymob' => [
+    'api_key'        => env('PAYMOB_API_KEY'),
+    'secret_key'     => env('PAYMOB_SECRET_KEY'),
+    'public_key'     => env('PAYMOB_PUBLIC_KEY'),
+    'integration_id' => env('PAYMOB_CASHIER_INTEGRATION_ID'),
+    'iframe_id'      => env('PAYMOB_IFRAME_ID'),
+    'hmac'           => env('PAYMOB_HMAC_SECRET'),
+    'base_url'       => 'https://ksa.paymob.com/api',  
+],
 
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
