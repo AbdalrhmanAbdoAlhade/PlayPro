@@ -13,7 +13,7 @@ return new class extends Migration {
             // بيانات أساسية
             $table->string('name'); // اسم الملعب
             $table->string('size'); // حجم الملعب (5x5 - 7x7 - 11x11)
-            $table->integer('capacity'); // سعة الملعب (عدد اللاعبين)
+            $table->string('capacity'); // سعة الملعب (عدد اللاعبين)
 
 
             // الموقع

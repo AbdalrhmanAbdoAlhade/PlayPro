@@ -7,17 +7,16 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('chairman_messages', function (Blueprint $table) {
+        Schema::create('loyalty_points', function (Blueprint $table) {
             $table->id();
-            $table->string('title');
-            $table->text('description')->nullable();
-            $table->string('image')->nullable(); 
+            $table->integer('points')->comment('عدد مرات التجديد المطلوبة');
+            $table->decimal('discount_percent', 5, 2)->comment('نسبة الخصم');
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('chairman_messages');
+        Schema::dropIfExists('loyalty_points');
     }
 };

@@ -18,10 +18,10 @@ return new class extends Migration {
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->enum('role', ['Admin', 'Coach', 'Owner', 'User'])->default('User');
+            $table->enum('role', ['Admin','Coach','Owner','OwnerAcademy','Management','User'])->default('User');
             $table->string('registration_role')->nullable();
             $table->string('status')->default('pending');
-
+        $table->boolean('blocked')->default(false);
             $table->rememberToken();
             $table->timestamps();
         });

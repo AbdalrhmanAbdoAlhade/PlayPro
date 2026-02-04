@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->string('title');
             $table->text('description')->nullable();
             $table->json('images')->nullable();
-            $table->json('type')->nullable();
+            $table->string('type')->nullable();
             $table->timestamps();
         });
     }
