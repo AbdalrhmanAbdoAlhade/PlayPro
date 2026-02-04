@@ -19,13 +19,60 @@ use App\Http\Controllers\MailController;
 use App\Http\Controllers\TransferRequestController;
 use App\Http\Controllers\CoachController;
 use App\Http\Controllers\RatingController;
+use App\Http\Controllers\WhatsAppWebhookController;
+use App\Http\Controllers\AcademyController;
+use App\Http\Controllers\FieldDayController;
+use App\Http\Controllers\SubscriptionRenewalPriceController;
+use App\Http\Controllers\CouponController;
+use App\Http\Controllers\LoyaltyPointController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\TermAndConditionController;
+use App\Http\Controllers\AboutSectionController;
+
+Route::get('about', [AboutSectionController::class, 'index']);
+Route::middleware('auth:sanctum')->post('about/{id}/upload-image', [AboutSectionController::class, 'updateImage']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('about', [AboutSectionController::class, 'store']);
+    Route::put('about/{aboutSection}', [AboutSectionController::class, 'update']);
+    Route::delete('about/{aboutSection}', [AboutSectionController::class, 'destroy']);
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('terms', TermAndConditionController::class)->except(['index', 'show']);
+});
+
+// المسارات العامة للعرض
+Route::get('terms', [TermAndConditionController::class, 'index']);
+Route::get('terms/{term}', [TermAndConditionController::class, 'show']);
 
 
+Route::get('/fields/most-booked', [FieldController::class, 'mostBooked']);
+Route::get('/fields/nearby', [FieldController::class, 'nearby']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    // ضع المسار هنا لضمان وجود مستخدم دائماً
+    Route::get('my-fields-coaches', [CoachController::class, 'myFieldsCoaches']);
+    Route::post('/bookings/contract', [FieldBookingController::class, 'createContractBooking']);
+});
 // Route لإرسال الإيميل عبر الـ API
 Route::post('/send-mail', [MailController::class, 'sendMail']);
+Route::post('/whatsapp/send', [WhatsAppWebhookController::class, 'sendMessageFromRequest']);
+Route::get('getAllMessages', [WhatsAppWebhookController::class, 'getAllMessages']);
 
+// مسارات استعادة كلمة المرور
+Route::post('/forgot-password', [UsersController::class, 'forgotPassword']);
+Route::post('/reset-password-otp', [UsersController::class, 'verifyOtpAndResetPassword']);
 
+Route::middleware('auth:sanctum')->group(function (){
+    Route::post('admin/users/create', [UsersController::class, 'adminCreateUser']);
+});
 
+Route::post(
+    'fields/{fieldId}/periods/{periodId}/status',
+    [FieldPeriodController::class, 'changeStatus']
+)->middleware('auth:sanctum');
+
+ 
 // ============================
 // Public Routes (No Auth)
 // ============================
@@ -61,6 +108,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Admin-only routes
         Route::middleware('auth:sanctum')->group(function (){
             Route::get('/', [UsersController::class, 'index']);
+           
             Route::delete('{id}', [UsersController::class, 'destroy']);
         });
     });
@@ -69,6 +117,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // Fields Management
     // ----------------------------
     Route::get('/my-fields', [FieldController::class, 'myFields']);
+    Route::get('/cities', [FieldController::class, 'cities']);
+    Route::get('periods', [FieldPeriodController::class, 'index']);
+    Route::get('allperiods', [FieldPeriodController::class, 'indexPeriod']);
+
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::post('/users/{id}/toggle-block', [UsersController::class, 'toggleBlock']);
+    Route::get('/users/blocked', [UsersController::class, 'getBlockedUsers']);
+});
+Route::delete('field-images/{imageId}', [FieldImageController::class, 'destroy']);
     Route::prefix('fields')->group(function () {
 
           // List all fields
@@ -82,13 +139,12 @@ Route::middleware('auth:sanctum')->group(function () {
         // ----------------------------
         Route::get('{field}/images', [FieldImageController::class, 'index']);
         Route::post('{field}/images', [FieldImageController::class, 'store']);
-        Route::delete('images/{image}', [FieldImageController::class, 'destroy']);
+ 
         Route::post('images/{image}/make-icon', [FieldImageController::class, 'makeIcon']);
 
         // ----------------------------
         // Field Periods
         // ----------------------------
-        Route::get('{field}/periods', [FieldPeriodController::class, 'index']);
         Route::post('{field}/periods', [FieldPeriodController::class, 'store']);
         Route::get('{field}/periods/{period}', [FieldPeriodController::class, 'show']);
         Route::put('{field}/periods/{period}', [FieldPeriodController::class, 'update']);
@@ -98,19 +154,40 @@ Route::middleware('auth:sanctum')->group(function () {
     // ----------------------------
     // Field Bookings
     // ----------------------------
+
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/bookings/inactive', [FieldBookingController::class, 'getInactiveAndDebtorCustomers']);
+    Route::post('bookings/{id}/renew', [FieldBookingController::class, 'renew']);
+
+Route::get('/bookings/statistics', [FieldBookingController::class, 'statistics']);
+Route::get('/academybookings/statistics', [FieldBookingController::class, 'academyStatistics']);
+
+    // Admin only – Update booking
+Route::post('/admin/bookings/{id}', [FieldBookingController::class, 'update']);
+
 
     // عرض الحجوزات (Admin / Owner)
     Route::get('bookings', [FieldBookingController::class, 'index']);
+
+    Route::get('academyBookings', [FieldBookingController::class, 'indexAcademy']);
     // عرض حجوزات المستخدم الحالي
     Route::get('my-bookings', [FieldBookingController::class, 'myBookings']);
     // إنشاء حجز جديد
     Route::post('bookings', [FieldBookingController::class, 'store']);
+     // إنشاء حجز للمعلب 
+      Route::post('bookField', [FieldBookingController::class, 'bookField']);
     // حذف حجز
     Route::delete('bookings/{id}', [FieldBookingController::class, 'destroy']);
+    
+    // ✅ إلغاء حجز (User / Admin)
+    Route::post('bookings/{id}/cancel', [FieldBookingController::class, 'cancel']);
+
+    
     // التحقق من QR Code
     Route::post('bookings/verify-qr', [FieldBookingController::class, 'verifyQr']);
 });
+});
+  Route::get('nextbookings', [FieldBookingController::class, 'futureBookings']);
 
 
    // ----------------------------
@@ -179,10 +256,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // ----------------------------
     
 
-Route::get('chairman-messages', [ChairmanMessageController::class, 'show']);
+// 🔓 Public routes
+Route::get('chairman-messages', [ChairmanMessageController::class, 'index']);
+Route::get('chairman-messages/{chairmanMessage}', [ChairmanMessageController::class, 'show']);
 
+// 🔐 Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('chairman-messages', [ChairmanMessageController::class, 'store']);
+    Route::post('chairman-messages/{chairmanMessage}', [ChairmanMessageController::class, 'update']);
+    Route::delete('chairman-messages/{chairmanMessage}', [ChairmanMessageController::class, 'destroy']);
 });
 
 // ----------------------------
@@ -202,7 +284,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ProductController
     // ----------------------------
 Route::get('products', [ProductController::class, 'index']);
-Route::get('products/{product}', [ProductController::class, 'show']);
+Route::get('products/{id}', [ProductController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('products', [ProductController::class, 'store']);
@@ -260,3 +342,111 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::middleware('auth:sanctum')->post('/rate', [RatingController::class, 'store']);
 
+
+
+//============================
+ //Academies
+//============================
+// عرض كل الأكاديميات
+Route::get('academies', [AcademyController::class, 'index']);
+// عرض أكاديمية واحدة مع الملاعب
+Route::get('academies/{id}', [AcademyController::class, 'show']);
+Route::middleware('auth:sanctum')->group(function () {
+
+    Route::prefix('academies')->group(function () {
+Route::get('academies/me', [AcademyController::class, 'myAcademies']);
+
+        // إنشاء أكاديمية جديدة
+        Route::post('/', [AcademyController::class, 'store']);
+
+        // تعديل أكاديمية
+        Route::post('{id}', [AcademyController::class, 'update']);
+
+        // حذف أكاديمية
+        Route::delete('{id}', [AcademyController::class, 'destroy']);
+
+    });
+});
+
+//============================
+ //SubscriptionRenewalPriceController
+//============================
+// 📌 Routes عامة (بدون Auth)
+
+Route::get(
+    'subscription-renewal-prices',
+    [SubscriptionRenewalPriceController::class, 'index']
+);
+
+Route::get(
+    'subscription-renewal-prices/{subscription_renewal_price}',
+    [SubscriptionRenewalPriceController::class, 'show']
+);
+
+// 🔒 Routes محمية (Auth)
+Route::middleware('auth:sanctum')->group(function () {
+Route::get(
+    'subscription-renewal-indexByRole',
+    [SubscriptionRenewalPriceController::class, 'indexByRole']
+);
+
+    Route::post(
+        'subscription-renewal-prices',
+        [SubscriptionRenewalPriceController::class, 'store']
+    );
+
+    Route::put(
+        'subscription-renewal-prices/{subscription_renewal_price}',
+        [SubscriptionRenewalPriceController::class, 'update']
+    );
+
+    Route::delete(
+        'subscription-renewal-prices/{subscription_renewal_price}',
+        [SubscriptionRenewalPriceController::class, 'destroy']
+    );
+});
+
+//============================
+ //CouponController
+//============================
+Route::middleware('auth:sanctum')->group(function () {
+
+    // Coupons CRUD (Admin)
+    Route::get('coupons', [CouponController::class, 'index']);
+    Route::post('coupons', [CouponController::class, 'store']);
+    Route::get('coupons/{id}', [CouponController::class, 'show']);
+    Route::put('coupons/{id}', [CouponController::class, 'update']);
+    Route::delete('coupons/{id}', [CouponController::class, 'destroy']);
+
+    // Check coupon
+    Route::post('coupons/check', [CouponController::class, 'check']);
+});
+
+
+Route::middleware('auth:sanctum')->group(function () {
+
+Route::get('/payments', [PaymentController::class, 'index']);
+Route::get('payments/{id}', [PaymentController::class, 'show'])
+   ;
+});
+
+Route::get('/payment/callback', [PaymentController::class, 'paymentCallback'])->name('payment.callback');
+//============================
+ //LoyaltyPointController
+//============================
+Route::middleware(['auth:sanctum'])->group(function () {
+
+    // Loyalty Points (Admin only)
+    Route::apiResource('loyalty-points', LoyaltyPointController::class);
+
+});
+Route::post('/paymob/webhook', [PaymentController::class, 'webhook']);
+
+Route::middleware('auth:sanctum')->group(function () {
+
+Route::post('/payments', [PaymentController::class, 'store']);
+Route::post('/payments/{payment}/intention', [PaymentController::class, 'createIntention']);
+
+Route::post('/payments/{payment}/refund', [PaymentController::class, 'refund']);
+
+});
