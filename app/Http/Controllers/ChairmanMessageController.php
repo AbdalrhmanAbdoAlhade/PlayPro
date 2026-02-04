@@ -4,23 +4,77 @@ namespace App\Http\Controllers;
 
 use App\Models\ChairmanMessage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use App\Models\User;
+use Illuminate\Support\Facades\Cache;
+
 
 class ChairmanMessageController extends Controller
 {
-    public function index()
+    /**
+     * التحقق من الصلاحيات: Admin / Management
+     */
+    private function authorizeRoles(Request $request)
     {
-        return response()->json(
-            ChairmanMessage::latest()->get()
-        );
+        $user = $request->user();
+
+        if (! $user || ! $user->hasRole([User::ROLE_ADMIN, User::ROLE_MANAGEMENT])) {
+            abort(response()->json([
+                'status' => false,
+                'message' => 'غير مصرح لك بالوصول'
+            ], 403));
+        }
     }
 
+    /**
+     * 📌 عرض كل الرسائل
+     */
+    // public function index(Request $request)
+    // {
+    //     $data = ChairmanMessage::query()->filter($request->all())
+
+    //         ->latest()->get();
+    //     return response()->json($data);
+    // }
+    
+    
+    public function index(Request $request)
+{
+    $search = $request->get('search');
+
+    $cacheKey = "chairman_messages:index:search={$search}";
+
+    $data = Cache::remember(
+        $cacheKey,
+        now()->addMinutes(10),
+        function () use ($request) {
+            return ChairmanMessage::query()
+                ->filter($request->all())
+                ->latest()
+                ->get();
+        }
+    );
+
+    return response()->json($data);
+}
+
+
+
+    /**
+     * 📌 عرض رسالة واحدة
+     */
     public function show(ChairmanMessage $chairmanMessage)
     {
         return response()->json($chairmanMessage);
     }
 
+    /**
+     * 📌 إنشاء رسالة جديدة
+     */
     public function store(Request $request)
     {
+        $this->authorizeRoles($request);
+
         $data = $request->validate([
             'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -31,13 +85,20 @@ class ChairmanMessageController extends Controller
             $data['image'] = $request->file('image')->store('chairman', 'public');
         }
 
-        $message = ChairmanMessage::create($data);
+        $chairmanMessage = ChairmanMessage::create($data);
+        Cache::flush();
 
-        return response()->json($message, 201);
+
+        return response()->json($chairmanMessage, 201);
     }
 
+    /**
+     * 📌 تحديث رسالة
+     */
     public function update(Request $request, ChairmanMessage $chairmanMessage)
     {
+        $this->authorizeRoles($request);
+
         $data = $request->validate([
             'title'       => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
@@ -45,20 +106,36 @@ class ChairmanMessageController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
+            // حذف الصورة القديمة
+            if ($chairmanMessage->image) {
+                Storage::disk('public')->delete($chairmanMessage->image);
+            }
             $data['image'] = $request->file('image')->store('chairman', 'public');
         }
 
         $chairmanMessage->update($data);
+        Cache::flush();
+
 
         return response()->json($chairmanMessage);
     }
 
-    public function destroy(ChairmanMessage $chairmanMessage)
+    /**
+     * 📌 حذف رسالة
+     */
+    public function destroy(Request $request, ChairmanMessage $chairmanMessage)
     {
+        $this->authorizeRoles($request);
+
+        if ($chairmanMessage->image) {
+            Storage::disk('public')->delete($chairmanMessage->image);
+        }
+
         $chairmanMessage->delete();
+Cache::flush();
 
         return response()->json([
-            'message' => 'تم حذف رسالة رئيس مجلس الإدارة بنجاح'
+            'message' => 'تم الحذف بنجاح'
         ]);
     }
 }

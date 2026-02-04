@@ -14,6 +14,8 @@ class Partner extends Model
         'name',
         'image',
         'description',
+        'link',
+        'badge',
     ];
 
     protected $appends = ['image_url'];
@@ -25,5 +27,17 @@ class Partner extends Model
         }
 
         return null;
+    }
+    
+    
+public function scopeFilter($query, array $filters)
+    {
+        return $query
+            ->when($filters['badge'] ?? null, function ($q, $badge) {
+                $q->where('badge', $badge);
+            })
+            ->when($filters['search'] ?? null, function ($q, $search) {
+                $q->where('name', 'LIKE', "%{$search}%");
+            });
     }
 }

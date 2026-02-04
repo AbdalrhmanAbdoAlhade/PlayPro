@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use App\Models\User;
+use App\Models\Field;
+use App\Models\Rating;
 
 class Coach extends Model
 {
@@ -28,7 +31,7 @@ class Coach extends Model
         'cv_url',
     ];
 
-    // 🔗 صور بلينك كامل
+
     public function getImagesUrlsAttribute()
     {
         if (!$this->images) {
@@ -36,7 +39,7 @@ class Coach extends Model
         }
 
         return collect($this->images)->map(function ($image) {
-            return Storage::disk('public')->url($image);
+            return asset('storage/' . $image);
         });
     }
 
@@ -46,7 +49,7 @@ class Coach extends Model
             return null;
         }
 
-        return Storage::disk('public')->url($this->cv_file);
+            return asset('storage/' . $this->cv_file);
     }
 
     public function user()
@@ -58,4 +61,33 @@ class Coach extends Model
     {
         return $this->belongsTo(Field::class);
     }
+    
+    public function ratings()
+{
+    return $this->morphMany(Rating::class, 'rateable');
+}
+
+public function averageRating()
+{
+    return round($this->ratings()->avg('rate'), 1);
+}
+
+
+  public function scopeFilter($query, array $filters)
+    {
+        return $query
+            ->when($filters['search'] ?? null, function ($q, $search) {
+                $q->where(function ($query) use ($search) {
+                    $query->where('age', 'LIKE', "%{$search}%")
+                          ->orWhere('name', 'LIKE', "%{$search}%")
+                          ->orWhere('experience_years', 'LIKE', "%{$search}%")
+                          ->orWhereHas('field', function ($q) use ($search) {
+                              $q->where('name', 'LIKE', "%{$search}%");
+                          });
+                });
+            });
+    
+}
+    
+    
 }

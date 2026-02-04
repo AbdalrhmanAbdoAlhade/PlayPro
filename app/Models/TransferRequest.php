@@ -47,4 +47,53 @@ class TransferRequest extends Model
     {
         return $this->belongsTo(FieldPeriod::class, 'target_period_id');
     }
+    
+public function scopeFilter($query, array $filters)
+{
+    return $query
+            ->when($filters['status'] ?? null, function ($q, $status) {
+            $q->where('status', $status);
+        })
+
+    
+        ->when($filters['search'] ?? null, function ($q, $search) {
+            $q->where(function ($query) use ($search) {
+
+                // 🔹 IDs (أرقام فقط)
+                if (is_numeric($search)) {
+                    $query->orWhere('id', $search)
+                          ->orWhereHas('currentBooking', function ($q) use ($search) {
+                              $q->where('id', $search);
+                          });
+                }
+
+                // 🔹 تاريخ الإنشاء
+                $query->orWhereDate('created_at', $search);
+
+                // 🔹 اسم المستخدم
+                $query->orWhereHas('user', function ($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%");
+                });
+
+                // 🔹 بيانات الحجز الحالي
+                $query->orWhereHas('currentBooking', function ($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%")
+                      ->orWhere('phone', 'LIKE', "%{$search}%");
+                });
+
+                // 🔹 اسم الملعب المستهدف
+                $query->orWhereHas('targetField', function ($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%");
+                });
+
+                // 🔹 الفترة الزمنية
+                $query->orWhereHas('targetPeriod', function ($q) use ($search) {
+                    $q->where('start_time', 'LIKE', "%{$search}%")
+                      ->orWhere('end_time', 'LIKE', "%{$search}%");
+                });
+            });
+        });
+}
+
+
 }

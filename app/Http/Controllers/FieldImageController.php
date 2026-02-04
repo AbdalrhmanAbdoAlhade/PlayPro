@@ -8,9 +8,29 @@ use App\Models\FieldImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use App\Models\User;
+
 
 class FieldImageController extends Controller
 {
+    private function checkRole()
+{
+    $user = Auth::user();
+
+    $allowedRoles = [
+        User::ROLE_OWNER,
+        User::ROLE_OWNER_ACADEMY,
+        User::ROLE_ADMIN,
+    ];
+
+    if (!in_array($user->role, $allowedRoles)) {
+        abort(response()->json([
+            'status' => false,
+            'message' => 'غير مصرح لك بالوصول إلى هذه الموارد'
+        ], 403));
+    }
+}
+
     /**
      * عرض كل صور ملعب
      */
@@ -32,19 +52,15 @@ class FieldImageController extends Controller
      */
     public function store(Request $request, $fieldId)
     {
+            $this->checkRole();
+
         $field = Field::findOrFail($fieldId);
 
-        if (Auth::id() !== $field->owner_id) {
-            return response()->json([
-                'status' => false,
-                'message' => 'غير مصرح لك'
-            ], 403);
-        }
 
         $data = $request->validate([
- 'icon' => 'nullable|file|max:20480',      // أي ملف، الحد الأقصى 20 ميجا (20480 كيلوبايت)
+ 'icon' => 'nullable|file|max:200480',      // أي ملف، الحد الأقصى 20 ميجا (20480 كيلوبايت)
 'images' => 'nullable|array',
-'images.*' => 'file|max:20480',          // أي ملف، الحد الأقصى 20 ميجا لكل صورة
+'images.*' => 'file|max:200480',          // أي ملف، الحد الأقصى 20 ميجا لكل صورة
 
         ]);
 
@@ -89,15 +105,10 @@ class FieldImageController extends Controller
      */
     public function destroy($imageId)
     {
+            $this->checkRole();
+
         $image = FieldImage::findOrFail($imageId);
         $field = $image->field;
-
-        if (Auth::id() !== $field->owner_id) {
-            return response()->json([
-                'status' => false,
-                'message' => 'غير مصرح لك'
-            ], 403);
-        }
 
         Storage::disk('public')->delete($image->image);
         $image->delete();
@@ -113,15 +124,11 @@ class FieldImageController extends Controller
      */
     public function makeIcon($imageId)
     {
+            $this->checkRole();
+
         $image = FieldImage::findOrFail($imageId);
         $field = $image->field;
 
-        if (Auth::id() !== $field->owner_id) {
-            return response()->json([
-                'status' => false,
-                'message' => 'غير مصرح لك'
-            ], 403);
-        }
 
         // إزالة الأيقونة الحالية
         FieldImage::where('field_id', $field->id)

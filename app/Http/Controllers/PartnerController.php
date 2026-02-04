@@ -4,16 +4,43 @@ namespace App\Http\Controllers;
 
 use App\Models\Partner;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class PartnerController extends Controller
 {
     /**
      * عرض كل الشركاء
      */
-    public function index()
-    {
-        return response()->json(Partner::latest()->get());
-    }
+//     public function index(Request $request)
+// {
+//     return response()->json(
+//         Partner::query()
+//             ->filter($request->all())
+//             ->latest()
+//             ->get()
+//     );
+// }
+
+public function index(Request $request)
+{
+    $search = $request->get('search');
+
+    $cacheKey = "partners:index:search={$search}";
+
+    $partners = Cache::remember(
+        $cacheKey,
+        now()->addMinutes(10),
+        function () use ($request) {
+            return Partner::query()
+                ->filter($request->all())
+                ->latest()
+                ->get();
+        }
+    );
+
+    return response()->json($partners);
+}
+
 
     /**
      * إضافة شريك جديد
@@ -24,6 +51,8 @@ class PartnerController extends Controller
             'name'        => 'required|string|max:255',
             'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
             'description' => 'nullable|string',
+            'link' => 'nullable|url',
+            'badge'        => 'nullable|string|max:255',
         ]);
 
         if ($request->hasFile('image')) {
@@ -31,6 +60,8 @@ class PartnerController extends Controller
         }
 
         $partner = Partner::create($data);
+        Cache::flush();
+
 
         return response()->json($partner, 201);
     }
@@ -52,6 +83,9 @@ class PartnerController extends Controller
             'name'        => 'sometimes|required|string|max:255',
             'image'       => 'nullable|image|mimes:jpg,jpeg,png,webp',
             'description' => 'nullable|string',
+            'link' => 'nullable|url',
+             'badge'        => 'sometimes|required|string|max:255',
+
         ]);
 
         if ($request->hasFile('image')) {
@@ -59,6 +93,8 @@ class PartnerController extends Controller
         }
 
         $partner->update($data);
+        Cache::flush();
+
 
         return response()->json($partner);
     }
@@ -69,6 +105,8 @@ class PartnerController extends Controller
     public function destroy(Partner $partner)
     {
         $partner->delete();
+        Cache::flush();
+
         return response()->json(['message' => 'تم حذف الشريك بنجاح']);
     }
 }

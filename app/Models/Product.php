@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 
 class Product extends Model
 {
@@ -41,4 +43,31 @@ class Product extends Model
                 ->withTimestamps();
 }
 
+public function ratings()
+{
+    return $this->morphMany(Rating::class, 'rateable');
+}
+
+public function averageRating()
+{
+    return round($this->ratings()->avg('rate'), 1);
+}
+
+
+  public function scopeFilter($query, Request $request)
+{
+    return $query
+  
+        ->when($request->filled('search'), function ($q) use ($request) {
+            $q->where(function ($query) use ($request) {
+                $query->where('type', 'LIKE', '%' . $request->search . '%')
+                ->orWhere('name', 'LIKE', '%' . $request->search . '%')
+                 ->orWhere('price', 'LIKE', '%' . $request->search . '%')
+
+                ;
+                  
+            });
+        });
+}
+   
 }

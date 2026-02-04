@@ -20,8 +20,15 @@ class Field extends Model
         'address',
         'description',
         'owner_id',
+        'academy_id',
+        'is_featured',
     ];
-
+    
+        public function academy()
+    {
+        return $this->belongsTo(Academy::class);
+    }
+    
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');
@@ -31,7 +38,8 @@ class Field extends Model
     {
         return $this->hasMany(FieldPeriod::class);
     }
-  public function images()
+    
+    public function images()
     {
         return $this->hasMany(FieldImage::class);
     }
@@ -52,4 +60,27 @@ class Field extends Model
         return $this->hasMany(FieldBooking::class);
     }
 
+public function scopeFilter($query, array $filters)
+{
+    return $query
+        ->when($filters['search'] ?? null, function ($q, $search) {
+            $q->where(function ($query) use ($search) {
+                $query->where('city', 'LIKE', "%{$search}%")
+                      ->orWhere('name', 'LIKE', "%{$search}%")
+                      ->orWhere('size', 'LIKE', "%{$search}%")
+                      ->orWhere('capacity', 'LIKE', "%{$search}%")
+                      ->orWhereHas('owner', function ($q) use ($search) {
+                          $q->where('name', 'LIKE', "%{$search}%")
+                            ->orWhere('phone', 'LIKE', "%{$search}%");
+                      });
+            });
+        })
+        ->when($filters['academyFilter'] ?? null, function ($q, $academyFilter) {
+            $q->where('academy_id', $academyFilter);
+        });
+}
+
+   
+
+   
 }

@@ -4,21 +4,50 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ProductController extends Controller
 {
-    public function index()
-    {
-        return response()->json(
-            Product::latest()->get()
-        );
-    }
+    // public function index(Request $request)
+    // {
+    //     return response()->json(
+    //         Product::query()
+    //   ->filter($request)
+    //             ->with('ratings.user')->latest()->get()
+    //     );
+    // }
+    public function index(Request $request)
+{
+    $search = $request->get('search');
 
-    public function show(Product $product)
-    {
-        return response()->json($product);
-    }
+    $cacheKey = "products:index:search={$search}";
 
+    $products = Cache::remember(
+        $cacheKey,
+        now()->addMinutes(10),
+        function () use ($request) {
+            return Product::query()
+                ->filter($request)
+                ->with('ratings.user')
+                ->latest()
+                ->get();
+        }
+    );
+
+    return response()->json($products);
+}
+
+
+ public function show(Request $request, $id)
+{
+    $product = Product::query()
+        ->where('id', $id)
+        ->filter($request) 
+        ->with('ratings.user')
+        ->firstOrFail();
+
+    return response()->json($product);
+}
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -35,6 +64,7 @@ class ProductController extends Controller
         }
 
         $product = Product::create($data);
+Cache::flush();
 
         return response()->json($product, 201);
     }
@@ -55,6 +85,8 @@ class ProductController extends Controller
         }
 
         $product->update($data);
+        Cache::flush();
+
 
         return response()->json($product);
     }
@@ -62,6 +94,7 @@ class ProductController extends Controller
     public function destroy(Product $product)
     {
         $product->delete();
+Cache::flush();
 
         return response()->json([
             'message' => 'تم حذف المنتج بنجاح'

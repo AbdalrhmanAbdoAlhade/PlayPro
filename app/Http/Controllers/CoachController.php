@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 
-use App\Http\Controllers;
+use App\Http\Controllers\Controller;
+use App\Models\Field;
+use App\Models\User;
 use App\Models\Coach;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,9 +16,11 @@ class CoachController extends Controller
     /**
      * عرض كل الكوتشز
      */
-    public function index()
+    public function index(Request $request)
     {
-        $coaches = Coach::with(['user', 'field'])->paginate(10);
+        $coaches = Coach::with(['user', 'field'])
+            ->filter($request->all())
+        ->paginate(10);
 
         return response()->json($coaches, 200);
     }
@@ -66,7 +70,7 @@ class CoachController extends Controller
      */
     public function show($id)
     {
-        $coach = Coach::with(['user', 'field'])->findOrFail($id);
+        $coach = Coach::with(['user', 'field','ratings'])->findOrFail($id);
 
         return response()->json($coach, 200);
     }
@@ -108,6 +112,65 @@ class CoachController extends Controller
             'data'    => $coach
         ], 200);
     }
+
+/**
+     * 📌 جلب كل المدربين الذين يعملون في ملاعب المستخدم الحالي (المالك)
+     */
+public function myFieldsCoaches(Request $request)
+{
+    $user = Auth::user();
+
+    if (!$user) {
+        return response()->json([
+            'status'  => false,
+            'message' => 'يجب تسجيل الدخول أولاً'
+        ], 401);
+    }
+
+    $allowedRoles = [
+        User::ROLE_ADMIN,
+        User::ROLE_OWNER,
+        User::ROLE_OWNER_ACADEMY
+    ];
+
+    if (!in_array($user->role, $allowedRoles)) {
+        return response()->json([
+            'status'  => false,
+            'message' => 'غير مصرح لك'
+        ], 403);
+    }
+
+    // 📦 Query الأساسي
+    $coaches = Coach::query()->with(['user', 'field.academy']);
+
+    // 🔑 فلتر حسب الدور، ماعدا لو طلبنا all
+    $showAll = $request->filled('booking_type') && $request->booking_type === 'all';
+
+    if (!$showAll) {
+        // 🏟 Owner → مدربي ملاعبه فقط
+        if ($user->role === User::ROLE_OWNER) {
+            $coaches->whereHas('field', function ($q) use ($user) {
+                $q->where('owner_id', $user->id);
+            });
+        }
+
+        // 🏫 Owner Academy → مدربي ملاعب الأكاديمية
+        if ($user->role === User::ROLE_OWNER_ACADEMY) {
+            $coaches->whereHas('field.academy', function ($q) use ($user) {
+                $q->where('user_id', $user->id); // غيّرها لو اسم العمود مختلف
+            });
+        }
+    }
+
+    $coaches = $coaches->latest()->get();
+
+    return response()->json([
+        'status' => true,
+        'total'  => $coaches->count(),
+        'data'   => $coaches
+    ]);
+}
+
 
     /**
      * حذف كوتش

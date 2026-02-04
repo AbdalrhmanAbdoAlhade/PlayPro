@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Payment;
 use App\Models\OrderItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,18 +14,22 @@ class OrderController extends Controller
     /**
      * عرض كل الطلبات الخاصة بالمستخدم الحالي
      */
-    public function index(Request $request)
-    {
-        $perPage = $request->input('per_page', 10);
+public function index(Request $request)
+{
+    $perPage = $request->input('per_page', 10);
 
-        $orders = Order::with('items.product')
-            ->where('user_id', Auth::id())
-            ->paginate($perPage);
+    $query = Order::with('items.product')
+            ->filter($request->all());
 
-        return response()->json([
-            'data' => $orders
-        ], 200);
+    if ($request->user()->role !== 'Admin') {
+        $query->where('user_id', Auth::id());
     }
+
+    return response()->json([
+        'data' => $query->paginate($perPage)
+    ], 200);
+}
+
 
     /**
      * إنشاء طلب جديد (بدون دفع)
@@ -36,6 +41,7 @@ class OrderController extends Controller
             'shipping_phone'     => 'required|string',
             'shipping_address'   => 'required|string',
             'shipping_city'      => 'required|string',
+            'coupon_name'        => 'nullable|string',
             'items'              => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity'   => 'required|integer|min:1',
@@ -49,6 +55,8 @@ class OrderController extends Controller
             'shipping_phone' => $validated['shipping_phone'],
             'shipping_address' => $validated['shipping_address'],
             'shipping_city' => $validated['shipping_city'],
+             'total_price' => 0,
+        'total_before_discount' => 0,
         ]);
 
         $total = 0;
@@ -81,15 +89,60 @@ class OrderController extends Controller
             $total += $totalItem;
         }
 
-        // 🔹 تحديث إجمالي الطلب
-        $order->update([
-            'total_price' => $total
-        ]);
+       
+    // ===============================
+    // 🧮 تطبيق الكوبون (لو موجود)
+    // ===============================
 
-        return response()->json([
-            'order' => $order->load('items.product')
-        ], 201);
+    $discountValue = 0;
+    $discountPercentage = null;
+    $couponName = null;
+
+    if (!empty($validated['coupon_name'])) {
+
+        $coupon = \App\Models\Coupon::where('name', $validated['coupon_name'])
+            ->where('status', 'active')
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
+            ->first();
+
+        if (!$coupon) {
+            return response()->json([
+                'message' => 'كوبون الخصم غير صالح'
+            ], 422);
+        }
+
+        $discountPercentage = $coupon->discount;
+        $discountValue = ($total * $discountPercentage) / 100;
+        $couponName = $coupon->name;
     }
+
+    $finalTotal = max($total - $discountValue, 0);
+
+    // 🔹 تحديث الطلب بعد الخصم
+    $order->update([
+        'total_before_discount' => $total,
+        'coupon_name'           => $couponName,
+        'coupon_percentage'     => $discountPercentage,
+        'coupon_discount'       => $discountValue,
+        'total_price'           => $finalTotal,
+    ]);
+    
+        $payment = Payment::create([
+        'user_id' => auth()->id(),
+        'order_id' => $order->id,
+        'gateway' => 'paymob',
+        'amount' => $order->total_price, // أو $data['amount']
+        'currency' => 'EGP',
+        'status' => 'pending',
+    ]);
+
+    return response()->json([
+        'order' => $order->load('items.product'),
+                'payment' => $payment
+
+    ], 201);
+}
 
     /**
      * عرض تفاصيل طلب معين
